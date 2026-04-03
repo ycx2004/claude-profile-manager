@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cc - Claude Code 账号/API Key 快速切换工具
-# 项目地址: https://github.com/Evan-Huang-yf/cc-cli
+# 项目地址: https://github.com/ycx2004/ccuse
 # 数据目录: ~/.cc-profiles/
 # 协议: MIT
 # 作者: hyf
@@ -11,7 +11,7 @@ PROFILES_DIR="$HOME/.cc-profiles"
 PROFILES_FILE="$PROFILES_DIR/profiles.json"
 CLAUDE_CONFIG="$HOME/.claude/config.json"
 ENV_FILE="$PROFILES_DIR/env.sh"
-REPO_URL="https://github.com/Evan-Huang-yf/cc-cli.git"
+REPO_URL="https://github.com/ycx2004/ccuse.git"
 
 # 颜色定义
 RED='\033[0;31m'

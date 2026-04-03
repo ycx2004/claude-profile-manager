@@ -31,8 +31,8 @@
 ### 方式一：一键安装（推荐）
 
 ```bash
-git clone https://github.com/Evan-Huang-yf/cc-cli.git
-cd cc-cli
+git clone https://github.com/ycx2004/ccuse.git
+cd ccuse
 bash install.sh
 # bash 用户
 source ~/.bashrc
@@ -430,7 +430,7 @@ shell 配置文件中的 wrapper 函数是必要的，因为：
 ## 卸载
 
 ```bash
-cd cc-cli
+cd ccuse
 bash uninstall.sh
 ```
 
