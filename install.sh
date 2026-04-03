@@ -28,6 +28,39 @@ COMPLETION_TARGET=""
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+persist_proxy_env() {
+    local http_proxy_val="${HTTP_PROXY:-${http_proxy:-}}"
+    local https_proxy_val="${HTTPS_PROXY:-${https_proxy:-}}"
+    local all_proxy_val="${ALL_PROXY:-${all_proxy:-}}"
+    local no_proxy_val="${NO_PROXY:-${no_proxy:-}}"
+    local proxy_file="$PROFILES_DIR/proxy.env"
+
+    if [ -z "$http_proxy_val$https_proxy_val$all_proxy_val$no_proxy_val" ]; then
+        return 0
+    fi
+
+    {
+        if [ -n "$http_proxy_val" ]; then
+            printf 'export HTTP_PROXY=%q\n' "$http_proxy_val"
+            printf 'export http_proxy=%q\n' "$http_proxy_val"
+        fi
+        if [ -n "$https_proxy_val" ]; then
+            printf 'export HTTPS_PROXY=%q\n' "$https_proxy_val"
+            printf 'export https_proxy=%q\n' "$https_proxy_val"
+        fi
+        if [ -n "$all_proxy_val" ]; then
+            printf 'export ALL_PROXY=%q\n' "$all_proxy_val"
+            printf 'export all_proxy=%q\n' "$all_proxy_val"
+        fi
+        if [ -n "$no_proxy_val" ]; then
+            printf 'export NO_PROXY=%q\n' "$no_proxy_val"
+            printf 'export no_proxy=%q\n' "$no_proxy_val"
+        fi
+    } > "$proxy_file"
+
+    echo -e "  ${GREEN}✓${NC} 已保存代理环境到 $proxy_file"
+}
+
 detect_shell() {
     case "$TARGET_SHELL" in
         zsh)
@@ -60,6 +93,7 @@ append_shell_block() {
             cat >> "$RC_FILE" << 'ZSHRC_BLOCK'
 
 # cc-cli: Claude Code 账号切换工具
+[ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
 [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
 if ! command -v compdef >/dev/null 2>&1; then
     autoload -Uz compinit
@@ -69,6 +103,7 @@ fi
 cc() {
     command cc "$@"
     local ret=$?
+    [ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
     [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
     if [ "${1:-}" = "use" ] || [ "${1:-}" = "switch" ]; then
         claude
@@ -81,11 +116,13 @@ ZSHRC_BLOCK
             cat >> "$RC_FILE" << 'BASHRC_BLOCK'
 
 # cc-cli: Claude Code 账号切换工具
+[ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
 [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
 [ -f "$HOME/.bash_completion.d/cc" ] && source "$HOME/.bash_completion.d/cc"
 cc() {
     command cc "$@"
     local ret=$?
+    [ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
     [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
     if [ "${1:-}" = "use" ] || [ "${1:-}" = "switch" ]; then
         claude
@@ -157,6 +194,7 @@ mkdir -p "$INSTALL_BIN"
 mkdir -p "$INSTALL_COMPLETION"
 mkdir -p "$PROFILES_DIR"
 touch "$RC_FILE"
+persist_proxy_env
 
 echo -e "  ${GREEN}✓${NC} $INSTALL_BIN"
 echo -e "  ${GREEN}✓${NC} $INSTALL_COMPLETION"

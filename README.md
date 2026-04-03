@@ -51,6 +51,7 @@ source ~/.zshrc
    - bash: `~/.bashrc`
    - zsh: `~/.zshrc`
 5. 初始化 `~/.cc-profiles/` 数据目录
+6. 如果当前终端已经设置了代理，会自动保存到 `~/.cc-profiles/proxy.env`
 
 如需强制指定安装到某个 shell，可在执行时传入环境变量：
 
@@ -84,11 +85,13 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 cat >> ~/.bashrc << 'EOF'
 
 # cc-cli: Claude Code 账号切换工具
+[ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
 [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
 [ -f "$HOME/.bash_completion.d/cc" ] && source "$HOME/.bash_completion.d/cc"
 cc() {
     command cc "$@"
     local ret=$?
+    [ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
     [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
     if [ "${1:-}" = "use" ] || [ "${1:-}" = "switch" ]; then
         claude
@@ -119,6 +122,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 cat >> ~/.zshrc << 'EOF'
 
 # cc-cli: Claude Code 账号切换工具
+[ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
 [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
 if ! command -v compdef >/dev/null 2>&1; then
     autoload -Uz compinit
@@ -128,6 +132,7 @@ fi
 cc() {
     command cc "$@"
     local ret=$?
+    [ -f "$HOME/.cc-profiles/proxy.env" ] && source "$HOME/.cc-profiles/proxy.env"
     [ -f "$HOME/.cc-profiles/env.sh" ] && source "$HOME/.cc-profiles/env.sh"
     if [ "${1:-}" = "use" ] || [ "${1:-}" = "switch" ]; then
         claude
@@ -219,9 +224,19 @@ cc use          # fzf 交互选择
 
 切换 API Key 类型 profile 时，工具会自动：
 1. 更新 `~/.claude/config.json`（API Key）
-2. 更新 `~/.claude/settings.json` 的 `env` 字段（Base URL，让 IDE 侧边栏也能读到）
-3. 更新终端环境变量 `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL`
+2. 更新 `~/.claude/settings.json` 的 `env` 字段（同时写入 `ANTHROPIC_AUTH_TOKEN`、Base URL 和代理变量）
+3. 更新终端环境变量 `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL`
 4. 自动启动 `claude`
+
+如果你的网络需要代理，先在当前终端导出代理再执行 `cc use` 即可，工具会自动保存并复用：
+
+```bash
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+cc use runapi
+```
+
+如果你之前在 `~/.bashrc` 或 `~/.zshrc` 里手工写过其他供应商的 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`，建议删除旧值，避免和 `cc` 当前 profile 混用。
 
 切换 OAuth 类型时，会执行 `claude /logout` + `claude /login` 流程。
 

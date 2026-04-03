@@ -54,6 +54,7 @@ print_cleanup_hint() {
 
     echo ""
     echo -e "  ${CYAN}# cc-cli: Claude Code 账号切换工具${NC}"
+    echo -e "  ${CYAN}[ -f \"\$HOME/.cc-profiles/proxy.env\" ] && source ...${NC}"
     echo -e "  ${CYAN}[ -f \"\$HOME/.cc-profiles/env.sh\" ] && source ...${NC}"
     echo -e "  ${CYAN}[ -f \"\$HOME/.bash_completion.d/cc\" ] && source ...${NC}"
     echo -e "  ${CYAN}[ -f \"\$HOME/.zsh/completions/_cc\" ] && source ...${NC}"
@@ -110,7 +111,16 @@ fi
 
 # 5. 清理环境变量
 unset ANTHROPIC_API_KEY 2>/dev/null || true
+unset ANTHROPIC_AUTH_TOKEN 2>/dev/null || true
 unset ANTHROPIC_BASE_URL 2>/dev/null || true
+unset HTTP_PROXY 2>/dev/null || true
+unset HTTPS_PROXY 2>/dev/null || true
+unset ALL_PROXY 2>/dev/null || true
+unset NO_PROXY 2>/dev/null || true
+unset http_proxy 2>/dev/null || true
+unset https_proxy 2>/dev/null || true
+unset all_proxy 2>/dev/null || true
+unset no_proxy 2>/dev/null || true
 
 echo ""
 echo -e "────────────────────────────"

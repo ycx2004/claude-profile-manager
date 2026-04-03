@@ -11,6 +11,7 @@ PROFILES_DIR="$HOME/.cc-profiles"
 PROFILES_FILE="$PROFILES_DIR/profiles.json"
 CLAUDE_CONFIG="$HOME/.claude/config.json"
 ENV_FILE="$PROFILES_DIR/env.sh"
+PROXY_ENV_FILE="$PROFILES_DIR/proxy.env"
 REPO_URL="https://github.com/ycx2004/ccuse.git"
 
 # 颜色定义
@@ -34,6 +35,102 @@ current_shell_rc() {
             echo "$HOME/.bashrc"
             ;;
     esac
+}
+
+persist_proxy_env_from_shell() {
+    local http_proxy_val="${HTTP_PROXY:-${http_proxy:-}}"
+    local https_proxy_val="${HTTPS_PROXY:-${https_proxy:-}}"
+    local all_proxy_val="${ALL_PROXY:-${all_proxy:-}}"
+    local no_proxy_val="${NO_PROXY:-${no_proxy:-}}"
+
+    if [ -z "$http_proxy_val$https_proxy_val$all_proxy_val$no_proxy_val" ]; then
+        return 0
+    fi
+
+    mkdir -p "$PROFILES_DIR"
+    {
+        if [ -n "$http_proxy_val" ]; then
+            printf 'export HTTP_PROXY=%q\n' "$http_proxy_val"
+            printf 'export http_proxy=%q\n' "$http_proxy_val"
+        fi
+        if [ -n "$https_proxy_val" ]; then
+            printf 'export HTTPS_PROXY=%q\n' "$https_proxy_val"
+            printf 'export https_proxy=%q\n' "$https_proxy_val"
+        fi
+        if [ -n "$all_proxy_val" ]; then
+            printf 'export ALL_PROXY=%q\n' "$all_proxy_val"
+            printf 'export all_proxy=%q\n' "$all_proxy_val"
+        fi
+        if [ -n "$no_proxy_val" ]; then
+            printf 'export NO_PROXY=%q\n' "$no_proxy_val"
+            printf 'export no_proxy=%q\n' "$no_proxy_val"
+        fi
+    } > "$PROXY_ENV_FILE"
+}
+
+source_proxy_env() {
+    if [ -f "$PROXY_ENV_FILE" ]; then
+        set +u
+        # shellcheck disable=SC1090
+        . "$PROXY_ENV_FILE" || true
+        set -u
+    fi
+}
+
+sync_claude_settings_env() {
+    local key="${1:-}"
+    local url="${2:-}"
+    local clear_auth="${3:-false}"
+    local claude_settings="$HOME/.claude/settings.json"
+    local http_proxy_val="${HTTP_PROXY:-${http_proxy:-}}"
+    local https_proxy_val="${HTTPS_PROXY:-${https_proxy:-}}"
+    local all_proxy_val="${ALL_PROXY:-${all_proxy:-}}"
+    local no_proxy_val="${NO_PROXY:-${no_proxy:-}}"
+    local jq_filter='
+        .env = (.env // {}) |
+        if $clear_auth == "true" then
+            del(.env.ANTHROPIC_API_KEY) |
+            del(.env.ANTHROPIC_AUTH_TOKEN) |
+            del(.env.ANTHROPIC_BASE_URL)
+        else
+            .env.ANTHROPIC_API_KEY = $key |
+            .env.ANTHROPIC_AUTH_TOKEN = $key |
+            (if $url != "" then .env.ANTHROPIC_BASE_URL = $url else del(.env.ANTHROPIC_BASE_URL) end)
+        end |
+        (if $http_proxy != "" then .env.HTTP_PROXY = $http_proxy | .env.http_proxy = $http_proxy else del(.env.HTTP_PROXY) | del(.env.http_proxy) end) |
+        (if $https_proxy != "" then .env.HTTPS_PROXY = $https_proxy | .env.https_proxy = $https_proxy else del(.env.HTTPS_PROXY) | del(.env.https_proxy) end) |
+        (if $all_proxy != "" then .env.ALL_PROXY = $all_proxy | .env.all_proxy = $all_proxy else del(.env.ALL_PROXY) | del(.env.all_proxy) end) |
+        (if $no_proxy != "" then .env.NO_PROXY = $no_proxy | .env.no_proxy = $no_proxy else del(.env.NO_PROXY) | del(.env.no_proxy) end) |
+        if .env == {} then del(.env) else . end
+    '
+    local new_settings tmp
+
+    if [ -f "$claude_settings" ]; then
+        new_settings=$(jq \
+            --arg key "$key" \
+            --arg url "$url" \
+            --arg clear_auth "$clear_auth" \
+            --arg http_proxy "$http_proxy_val" \
+            --arg https_proxy "$https_proxy_val" \
+            --arg all_proxy "$all_proxy_val" \
+            --arg no_proxy "$no_proxy_val" \
+            "$jq_filter" \
+            "$claude_settings")
+    else
+        new_settings=$(printf '{}' | jq \
+            --arg key "$key" \
+            --arg url "$url" \
+            --arg clear_auth "$clear_auth" \
+            --arg http_proxy "$http_proxy_val" \
+            --arg https_proxy "$https_proxy_val" \
+            --arg all_proxy "$all_proxy_val" \
+            --arg no_proxy "$no_proxy_val" \
+            "$jq_filter")
+    fi
+
+    tmp="$HOME/.claude/.settings_tmp.json"
+    echo "$new_settings" > "$tmp"
+    mv "$tmp" "$claude_settings"
 }
 
 # 文件锁，防止多终端并发写坏 profiles.json
@@ -454,17 +551,13 @@ cmd_use() {
             echo "$new_config" > "$CLAUDE_CONFIG"
         fi
 
-        # OAuth: 清除 settings.json 中的 ANTHROPIC_BASE_URL
-        local CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-        if [ -f "$CLAUDE_SETTINGS" ]; then
-            local new_settings
-            new_settings=$(jq 'del(.env.ANTHROPIC_BASE_URL) | if .env == {} then del(.env) else . end' "$CLAUDE_SETTINGS")
-            echo "$new_settings" > "$CLAUDE_SETTINGS"
-        fi
+        # OAuth: 清除 settings.json 中与 API 直连相关的配置，但保留代理变量
+        sync_claude_settings_env "" "" true
 
         # OAuth: 清除 API key 和 base url
         {
             echo "unset ANTHROPIC_API_KEY 2>/dev/null || true"
+            echo "unset ANTHROPIC_AUTH_TOKEN 2>/dev/null || true"
             echo "unset ANTHROPIC_BASE_URL 2>/dev/null || true"
         } > "$ENV_FILE"
 
@@ -838,26 +931,13 @@ _apply_profile() {
         echo "$new_config" > "$tmp"
         mv "$tmp" "$CLAUDE_CONFIG"
 
-        # 写入 settings.json 的 env 字段（让 IDE 侧边栏也能读到 base URL）
-        if [ -n "$url" ]; then
-            if [ -f "$CLAUDE_SETTINGS" ]; then
-                local new_settings
-                new_settings=$(jq --arg url "$url" \
-                    '.env.ANTHROPIC_BASE_URL = $url' "$CLAUDE_SETTINGS")
-                echo "$new_settings" > "$CLAUDE_SETTINGS"
-            fi
-        else
-            # 无自定义 URL，清除 settings.json 中的 ANTHROPIC_BASE_URL
-            if [ -f "$CLAUDE_SETTINGS" ]; then
-                local new_settings
-                new_settings=$(jq 'del(.env.ANTHROPIC_BASE_URL) | if .env == {} then del(.env) else . end' "$CLAUDE_SETTINGS")
-                echo "$new_settings" > "$CLAUDE_SETTINGS"
-            fi
-        fi
+        # 写入 settings.json 的 env 字段，让 IDE 侧边栏和 claude 子进程都能读到
+        sync_claude_settings_env "$key" "$url" false
 
         # 写入 env.sh（终端环境变量）
         {
             echo "export ANTHROPIC_API_KEY=\"$key\""
+            echo "export ANTHROPIC_AUTH_TOKEN=\"$key\""
             if [ -n "$url" ]; then
                 echo "export ANTHROPIC_BASE_URL=\"$url\""
             else
@@ -911,7 +991,9 @@ cmd_exec() {
 
     # 在子 shell 中设置环境变量并执行
     (
+        source_proxy_env
         export ANTHROPIC_API_KEY="$key"
+        export ANTHROPIC_AUTH_TOKEN="$key"
         if [ -n "$url" ]; then
             export ANTHROPIC_BASE_URL="$url"
         else
@@ -1115,6 +1197,8 @@ cmd_import_current() {
 # 主入口
 main() {
     init
+    persist_proxy_env_from_shell
+    source_proxy_env
 
     if [ $# -eq 0 ]; then
         usage
