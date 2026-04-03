@@ -1,0 +1,114 @@
+#compdef cc
+
+if ! command -v compdef >/dev/null 2>&1; then
+    autoload -Uz compinit
+    compinit -i
+fi
+
+_cc_profiles() {
+    local -a profiles
+
+    if (( $+commands[jq] )) && [[ -f "$HOME/.cc-profiles/profiles.json" ]]; then
+        profiles=("${(@f)$(jq -r '.profiles | keys[]' "$HOME/.cc-profiles/profiles.json" 2>/dev/null)}")
+    fi
+
+    if (( ${#profiles[@]} )); then
+        _describe -t profiles 'profile' profiles
+    else
+        _message 'profile name'
+    fi
+}
+
+_cc() {
+    local -a commands
+
+    commands=(
+        'list:列出所有 profile'
+        'ls:list 的别名'
+        'current:查看当前激活的 profile'
+        'cur:current 的别名'
+        'add:添加 API Key 或 OAuth profile'
+        'use:切换到指定 profile'
+        'switch:use 的别名'
+        'edit:修改 profile 属性'
+        'test:测试 profile 连通性'
+        'exec:临时使用某 profile 执行命令'
+        'rm:删除 profile'
+        'del:rm 的别名'
+        'remove:rm 的别名'
+        'rename:重命名 profile'
+        'mv:rename 的别名'
+        'show:查看 profile 详情'
+        'info:show 的别名'
+        'export:导出 profiles'
+        'import-file:从文件导入 profiles'
+        'backup:备份当前配置'
+        'update:从 GitHub 更新'
+        'import:导入当前已有 key'
+        'help:显示帮助'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe -t commands 'cc subcommand' commands
+        return
+    fi
+
+    case "$words[2]" in
+        use|switch|rm|del|remove|show|info|edit|test|exec|rename|mv)
+            if (( CURRENT == 3 )); then
+                _cc_profiles
+                return
+            fi
+            ;;
+    esac
+
+    case "${words[CURRENT-1]}" in
+        --key|--url|--tag)
+            _message 'value'
+            return
+            ;;
+        --file|-f)
+            _files
+            return
+            ;;
+    esac
+
+    case "$words[2]" in
+        add)
+            _arguments \
+                '--key[API Key]' \
+                '--url[自定义 Base URL]' \
+                '--oauth[使用 OAuth 登录]' \
+                '--tag[profile 标签]'
+            ;;
+        edit)
+            _arguments \
+                '--key[新的 API Key]' \
+                '--url[新的 Base URL]' \
+                '--tag[新的标签]'
+            ;;
+        list|ls)
+            _arguments '--tag[按标签过滤]'
+            ;;
+        export)
+            _arguments '--file[输出文件]:file:_files' '-f[输出文件]:file:_files'
+            ;;
+        import-file)
+            if (( CURRENT == 3 )); then
+                _files
+            fi
+            ;;
+        exec)
+            if (( CURRENT == 4 )) && [[ "$words[3]" != "--" ]]; then
+                compadd --
+                return
+            fi
+            if (( CURRENT >= 5 )) && [[ "$words[3]" == "--" ]]; then
+                _normal
+                return
+            fi
+            ;;
+    esac
+}
+
+compdef _cc cc
