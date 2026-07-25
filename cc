@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cc - Claude Code 账号/API Key 快速切换工具
-# 项目地址: https://github.com/ycx2004/ccuse
+# 项目地址: https://github.com/ycx2004/claude-profile-manager
 # 数据目录: ~/.cc-profiles/
 # 协议: MIT
 # 作者: hyf
@@ -12,7 +12,7 @@ PROFILES_FILE="$PROFILES_DIR/profiles.json"
 CLAUDE_CONFIG="$HOME/.claude/config.json"
 ENV_FILE="$PROFILES_DIR/env.sh"
 PROXY_ENV_FILE="$PROFILES_DIR/proxy.env"
-REPO_URL="https://github.com/ycx2004/ccuse.git"
+REPO_URL="https://github.com/ycx2004/claude-profile-manager.git"
 
 # 颜色定义
 RED='\033[0;31m'

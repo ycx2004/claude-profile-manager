@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cc-cli 一键安装脚本
-# 项目地址: https://github.com/ycx2004/ccuse
+# 项目地址: https://github.com/ycx2004/claude-profile-manager
 
 set -euo pipefail
 
