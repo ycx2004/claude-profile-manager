@@ -1,4 +1,4 @@
-# cc-cli
+# Claude Profile Manager (`cc-cli`)
 
 **Claude Code 多账号/API Key 快速切换工具**
 
@@ -31,8 +31,8 @@
 ### 方式一：一键安装（推荐）
 
 ```bash
-git clone https://github.com/ycx2004/ccuse.git
-cd ccuse
+git clone https://github.com/ycx2004/claude-profile-manager.git
+cd claude-profile-manager
 bash install.sh
 # bash 用户
 source ~/.bashrc
@@ -445,7 +445,7 @@ shell 配置文件中的 wrapper 函数是必要的，因为：
 ## 卸载
 
 ```bash
-cd ccuse
+cd claude-profile-manager
 bash uninstall.sh
 ```
 
